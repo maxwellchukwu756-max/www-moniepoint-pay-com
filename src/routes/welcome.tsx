@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { Zap, ShieldCheck, CreditCard, Globe2, ArrowRight } from "lucide-react";
+import { Globe2, ArrowRight } from "lucide-react";
 import { MoniepointLogo } from "@/components/MoniepointLogo";
 import { PhoneFrame } from "@/components/PhoneFrame";
 
@@ -13,13 +13,6 @@ export const Route = createFileRoute("/welcome")({
   }),
   component: Welcome,
 });
-
-const features = [
-  { icon: Zap, title: "Instant Transfers", desc: "Move money quickly anytime." },
-  { icon: ShieldCheck, title: "Secure Wallet", desc: "Protected transactions & security." },
-  { icon: CreditCard, title: "Smart Payments", desc: "Seamless payment experience." },
-  { icon: Globe2, title: "24/7 Banking", desc: "Access your account anytime." },
-];
 
 function Welcome() {
   const navigate = useNavigate();
@@ -40,39 +33,35 @@ function Welcome() {
           transition={{ delay: 0.15 }}
           className="mt-8 text-center"
         >
-          <h1 className="text-2xl font-black tracking-tight text-foreground">
-            Welcome to <span style={{ color: "#0000FF" }}>MONIEPOINT PAY</span>
+          <p className="text-sm font-medium tracking-wide uppercase" style={{ color: "#0000FF" }}>
+            WELCOME TO
+          </p>
+          <h1 className="mt-1 text-lg font-black tracking-tight text-foreground">
+            MONIEPOINT PAY
           </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
+          <p className="mt-2 text-xs text-muted-foreground">
             Secure digital payments made simple.
           </p>
-          <p className="mt-3 text-[13px] text-muted-foreground/90 leading-relaxed px-2">
+          <p className="mt-2 text-[11px] text-muted-foreground/80 leading-relaxed px-3">
             Send money instantly, manage transactions, pay bills, and access financial services with speed and security.
           </p>
         </motion.div>
 
-        <div className="mt-7 grid grid-cols-2 gap-3">
-          {features.map((f, i) => (
-            <motion.div
-              key={f.title}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.25 + i * 0.08 }}
-              className="rounded-2xl p-4 bg-card border border-border"
-              style={{ boxShadow: "var(--shadow-card)" }}
-            >
-              <div
-                className="h-10 w-10 rounded-xl flex items-center justify-center bg-brand-soft"
-              >
-                <f.icon className="h-5 w-5" style={{ color: "#0000FF" }} />
-              </div>
-              <h3 className="mt-3 font-semibold text-sm">{f.title}</h3>
-              <p className="mt-1 text-[11px] text-muted-foreground leading-snug">
-                {f.desc}
-              </p>
-            </motion.div>
-          ))}
-        </div>
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+          className="mt-8 mx-auto w-full max-w-[260px] rounded-2xl p-5 bg-card border border-border text-center"
+          style={{ boxShadow: "var(--shadow-card)" }}
+        >
+          <div className="mx-auto h-12 w-12 rounded-full flex items-center justify-center bg-brand-soft">
+            <Globe2 className="h-6 w-6" style={{ color: "#0000FF" }} />
+          </div>
+          <h3 className="mt-3 font-semibold text-sm">24/7 Banking</h3>
+          <p className="mt-1 text-[11px] text-muted-foreground leading-snug">
+            Access your account anytime, anywhere.
+          </p>
+        </motion.div>
 
         <div className="flex-1" />
 
