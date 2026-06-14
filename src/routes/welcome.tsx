@@ -38,9 +38,9 @@ function MarqueeCard({ c }: { c: Card }) {
     >
       <div
         className="mx-auto h-10 w-10 rounded-full flex items-center justify-center"
-        style={{ background: `${c.color}15` }}
+        style={{ background: `${c.color}15`, color: c.color }}
       >
-        <Icon className="h-5 w-5" style={{ color: c.color }} />
+        <Icon className="h-5 w-5" />
       </div>
       <h3 className="mt-2 font-semibold text-xs">{c.title}</h3>
       <p className="mt-1 text-[10px] text-muted-foreground leading-snug">{c.text}</p>
