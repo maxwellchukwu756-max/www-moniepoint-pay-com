@@ -1,9 +1,11 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { useState } from "react";
-import { Eye, EyeOff, User, Phone, Mail, Lock } from "lucide-react";
+import { Eye, EyeOff, User, Phone, Mail, Lock, AtSign } from "lucide-react";
+import { createAccount, signIn, findByEmail, findByUsername } from "@/lib/store";
 
 export const Route = createFileRoute("/activate")({
+  validateSearch: (s: Record<string, unknown>) => ({ ref: typeof s.ref === "string" ? s.ref : undefined }),
   head: () => ({
     meta: [
       { title: "Create Account — Moniepoint Pay" },
@@ -17,20 +19,37 @@ type Mode = "signup" | "signin";
 
 function Activate() {
   const navigate = useNavigate();
+  const { ref: referredBy } = useSearch({ from: "/activate" });
   const [mode, setMode] = useState<Mode>("signup");
   const [fullName, setFullName] = useState("");
+  const [username, setUsername] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [showPwd, setShowPwd] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState("");
+  const [fieldError, setFieldError] = useState<{ email?: string; username?: string }>({});
+
+  const checkDup = () => {
+    const fe: typeof fieldError = {};
+    if (email && findByEmail(email)) fe.email = "Email already registered.";
+    if (username && findByUsername(username)) fe.username = "Username already taken.";
+    setFieldError(fe);
+    return Object.keys(fe).length === 0;
+  };
 
   const handleCreate = () => {
     setError("");
-    if (!fullName || !phone || !email || !password || !confirm) {
+    setFieldError({});
+    if (!fullName || !username || !phone || !email || !password || !confirm) {
       setError("Please fill in all fields");
+      return;
+    }
+    if (!/^[a-zA-Z0-9_]{3,}$/.test(username)) {
+      setFieldError({ username: "Use letters, numbers or _ (min 3)" });
       return;
     }
     if (password.length < 6) {
@@ -41,27 +60,29 @@ function Activate() {
       setError("Passwords do not match");
       return;
     }
-    const account = { fullName, phone, email, password };
-    localStorage.setItem("mp_account", JSON.stringify(account));
+    if (!checkDup()) return;
+    const res = createAccount({ fullName, username, phone, email, password, referredBy });
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    window.dispatchEvent(new Event("mp:account"));
     navigate({ to: "/loading" });
   };
 
   const handleSignIn = () => {
     setError("");
-    const raw = localStorage.getItem("mp_account");
-    if (!raw) {
-      setError("No account found. Please create an account first.");
+    if (!identifier || !password) {
+      setError("Please enter your credentials");
       return;
     }
-    const acct = JSON.parse(raw);
-    if (
-      (email === acct.email || phone === acct.phone) &&
-      password === acct.password
-    ) {
-      navigate({ to: "/loading" });
-    } else {
-      setError("Invalid credentials. Please try again.");
+    const res = signIn(identifier, password);
+    if (!res.ok) {
+      setError(res.error);
+      return;
     }
+    window.dispatchEvent(new Event("mp:account"));
+    navigate({ to: "/loading" });
   };
 
   return (
@@ -99,49 +120,58 @@ function Activate() {
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             {mode === "signup"
-              ? "Fill in your details to get started"
+              ? referredBy ? `Referred by ${referredBy} · Fill in your details` : "Fill in your details to get started"
               : "Sign in to access your account"}
           </p>
 
           <div className="mt-4 space-y-3">
-            {mode === "signup" && (
-              <Field icon={User} placeholder="Full Name" value={fullName} onChange={setFullName} />
-            )}
-            {mode === "signup" && (
-              <Field icon={Phone} placeholder="Phone Number" value={phone} onChange={setPhone} type="tel" />
-            )}
-            <Field
-              icon={Mail}
-              placeholder={mode === "signup" ? "Email" : "Email or Phone"}
-              value={email}
-              onChange={setEmail}
-              type={mode === "signup" ? "email" : "text"}
-            />
-            <Field
-              icon={Lock}
-              placeholder="Password"
-              value={password}
-              onChange={setPassword}
-              type={showPwd ? "text" : "password"}
-              trailing={
-                <button type="button" onClick={() => setShowPwd((s) => !s)} className="text-muted-foreground hover:text-primary">
-                  {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              }
-            />
-            {mode === "signup" && (
-              <Field
-                icon={Lock}
-                placeholder="Confirm Password"
-                value={confirm}
-                onChange={setConfirm}
-                type={showConfirm ? "text" : "password"}
-                trailing={
-                  <button type="button" onClick={() => setShowConfirm((s) => !s)} className="text-muted-foreground hover:text-primary">
-                    {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                }
-              />
+            {mode === "signup" ? (
+              <>
+                <Field icon={User} placeholder="Full Name" value={fullName} onChange={setFullName} />
+                <Field icon={AtSign} placeholder="Username" value={username} onChange={(v) => { setUsername(v); setFieldError(fe => ({ ...fe, username: undefined })); }} error={fieldError.username} />
+                <Field icon={Phone} placeholder="Phone Number" value={phone} onChange={setPhone} type="tel" />
+                <Field icon={Mail} placeholder="Email" value={email} onChange={(v) => { setEmail(v); setFieldError(fe => ({ ...fe, email: undefined })); }} type="email" error={fieldError.email} />
+                <Field
+                  icon={Lock}
+                  placeholder="Password"
+                  value={password}
+                  onChange={setPassword}
+                  type={showPwd ? "text" : "password"}
+                  trailing={
+                    <button type="button" onClick={() => setShowPwd((s) => !s)} className="text-muted-foreground hover:text-primary">
+                      {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  }
+                />
+                <Field
+                  icon={Lock}
+                  placeholder="Confirm Password"
+                  value={confirm}
+                  onChange={setConfirm}
+                  type={showConfirm ? "text" : "password"}
+                  trailing={
+                    <button type="button" onClick={() => setShowConfirm((s) => !s)} className="text-muted-foreground hover:text-primary">
+                      {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  }
+                />
+              </>
+            ) : (
+              <>
+                <Field icon={Mail} placeholder="Email, Username or Phone" value={identifier} onChange={setIdentifier} />
+                <Field
+                  icon={Lock}
+                  placeholder="Password"
+                  value={password}
+                  onChange={setPassword}
+                  type={showPwd ? "text" : "password"}
+                  trailing={
+                    <button type="button" onClick={() => setShowPwd((s) => !s)} className="text-muted-foreground hover:text-primary">
+                      {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  }
+                />
+              </>
             )}
           </div>
 
@@ -165,6 +195,7 @@ function Activate() {
           <button
             onClick={() => {
               setError("");
+              setFieldError({});
               setMode((m) => (m === "signup" ? "signin" : "signup"));
             }}
             className="w-full h-11 rounded-xl bg-brand-soft text-primary text-xs font-bold border border-border"
@@ -182,33 +213,26 @@ function Activate() {
 }
 
 function Field({
-  icon: Icon,
-  placeholder,
-  value,
-  onChange,
-  type = "text",
-  trailing,
+  icon: Icon, placeholder, value, onChange, type = "text", trailing, error,
 }: {
   icon: React.ComponentType<{ className?: string }>;
-  placeholder: string;
-  value: string;
-  onChange: (v: string) => void;
-  type?: string;
-  trailing?: React.ReactNode;
+  placeholder: string; value: string; onChange: (v: string) => void;
+  type?: string; trailing?: React.ReactNode; error?: string;
 }) {
   return (
-    <div className="relative">
-      <Icon className="h-4 w-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full h-11 rounded-xl bg-muted border border-border focus:border-primary focus:bg-white outline-none pl-10 pr-10 text-sm transition-all"
-      />
-      {trailing && (
-        <div className="absolute right-3.5 top-1/2 -translate-y-1/2">{trailing}</div>
-      )}
+    <div>
+      <div className="relative">
+        <Icon className="h-4 w-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <input
+          type={type}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className={`w-full h-11 rounded-xl bg-muted border ${error ? "border-red-500" : "border-border focus:border-primary"} focus:bg-white outline-none pl-10 pr-10 text-sm transition-all`}
+        />
+        {trailing && <div className="absolute right-3.5 top-1/2 -translate-y-1/2">{trailing}</div>}
+      </div>
+      {error && <p className="mt-1 text-[10px] font-semibold text-red-600">{error}</p>}
     </div>
   );
 }

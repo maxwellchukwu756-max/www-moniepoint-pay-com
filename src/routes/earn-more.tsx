@@ -1,0 +1,210 @@
+import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { motion } from "framer-motion";
+import { ArrowLeft, Sparkles, Check, Copy, Share2, Users, Gift } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { PhoneFrame } from "@/components/PhoneFrame";
+import { useAccount, useBalance, useTxs, addNotification, formatNGN, genRef } from "@/lib/store";
+
+export const Route = createFileRoute("/earn-more")({
+  head: () => ({ meta: [{ title: "Earn More — Moniepoint Pay" }] }),
+  component: EarnMore,
+});
+
+const ALL_TASKS = [
+  "Watch videos and earn",
+  "Follow social media pages",
+  "Install partner apps",
+  "Complete surveys",
+  "Refer friends to MoniePoint Pay",
+  "Share posts on Facebook",
+  "Rate apps on Play Store",
+  "Daily check-in",
+  "Spin and win",
+  "Quiz competitions",
+  "Read MoniePoint blog articles",
+  "Subscribe to newsletter",
+  "Try new features",
+  "Watch ads",
+  "Engage on Twitter / X",
+];
+
+const REWARDS = [500, 1000, 1500, 2000, 2500, 3000];
+
+function dayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+function seededRand(seed: string) {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return () => {
+    h = (h * 1664525 + 1013904223) >>> 0;
+    return h / 0xffffffff;
+  };
+}
+
+function getTodaysTasks() {
+  const rand = seededRand(dayKey());
+  const tasksShuffled = [...ALL_TASKS].sort(() => rand() - 0.5).slice(0, 6);
+  return tasksShuffled.map((t, i) => ({
+    id: `${dayKey()}-${i}`,
+    title: t,
+    reward: REWARDS[Math.floor(rand() * REWARDS.length)],
+  }));
+}
+
+const COMPLETED_KEY = "mp_earn_completed";
+
+function EarnMore() {
+  const router = useRouter();
+  const account = useAccount();
+  const { balance, setBalance } = useBalance();
+  const { addTx } = useTxs();
+  const [showReferral, setShowReferral] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const tasks = useMemo(getTodaysTasks, []);
+  const [completed, setCompleted] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(COMPLETED_KEY);
+      const map = raw ? JSON.parse(raw) : {};
+      // reset if new day
+      if (map._day !== dayKey()) {
+        const fresh = { _day: dayKey() };
+        localStorage.setItem(COMPLETED_KEY, JSON.stringify(fresh));
+        setCompleted({});
+      } else {
+        setCompleted(map);
+      }
+    } catch { setCompleted({}); }
+  }, []);
+
+  const complete = (id: string, title: string, reward: number) => {
+    if (completed[id]) return;
+    const next = { ...completed, [id]: true, _day: dayKey() };
+    setCompleted(next);
+    localStorage.setItem(COMPLETED_KEY, JSON.stringify(next));
+    const ref = genRef();
+    const dateISO = new Date().toISOString();
+    addTx({ id: ref, kind: "earn", name: "Earn More Reward", sub: title, amount: reward, reference: ref, dateISO });
+    addNotification({ id: ref, title: "Earn More Reward", sub: title, amount: reward, status: "Successful", dateISO });
+    setBalance(balance + reward);
+  };
+
+  const referralLink = account?.referralCode
+    ? `https://moniepointpay.netlify.app/register?ref=${account.referralCode}`
+    : "https://moniepointpay.netlify.app/register";
+
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(referralLink); } catch {}
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  };
+
+  const share = async () => {
+    if (navigator.share) {
+      try { await navigator.share({ title: "Join Moniepoint Pay", url: referralLink }); } catch {}
+    } else { copy(); }
+  };
+
+  const PRIMARY = "#0000FF";
+
+  return (
+    <PhoneFrame>
+      <div className="flex-1 flex flex-col" style={{ background: PRIMARY, color: "#FFFFFF" }}>
+        <div className="px-6 pt-10 pb-6">
+          <button onClick={() => router.history.back()} className="h-10 w-10 rounded-full bg-white/20 backdrop-blur flex items-center justify-center">
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <div className="mt-4 flex items-center gap-3">
+            <div className="h-12 w-12 rounded-2xl bg-white/20 flex items-center justify-center">
+              <Sparkles className="h-6 w-6" />
+            </div>
+            <div>
+              <h1 className="text-xl font-black tracking-tight">Earn More</h1>
+              <p className="text-[11px] opacity-90">Complete tasks & invite friends to earn cash</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 px-6 pb-8 space-y-4">
+          <button onClick={() => setShowReferral(s => !s)} className="w-full rounded-2xl bg-white text-[#0000FF] p-4 flex items-center gap-3 text-left">
+            <div className="h-10 w-10 rounded-xl bg-[#0000FF]/10 flex items-center justify-center">
+              <Users className="h-5 w-5" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-black">Invite Users</p>
+              <p className="text-[11px] opacity-80">Earn ₦1,000 for each successful referral</p>
+            </div>
+            <span className="text-[10px] font-bold">{showReferral ? "HIDE" : "OPEN"}</span>
+          </button>
+
+          {showReferral && (
+            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl bg-white/15 border border-white/20 backdrop-blur p-4 space-y-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-widest font-semibold opacity-80">Your Referral Link</p>
+                <p className="mt-1 text-xs font-bold break-all select-all">{referralLink}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={copy} className="h-11 rounded-xl bg-white text-[#0000FF] text-xs font-bold flex items-center justify-center gap-2">
+                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  {copied ? "Copied" : "Copy Link"}
+                </button>
+                <button onClick={share} className="h-11 rounded-xl border border-white/40 text-xs font-bold flex items-center justify-center gap-2">
+                  <Share2 className="h-4 w-4" /> Share
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/20">
+                <Stat label="Referral Count" value="0" />
+                <Stat label="Successful" value="0" />
+                <Stat label="Earnings" value="₦0.00" />
+                <Stat label="Pending" value="0" />
+              </div>
+            </motion.div>
+          )}
+
+          <div>
+            <p className="text-[11px] uppercase tracking-widest font-semibold opacity-80 mb-2 flex items-center gap-1.5">
+              <Gift className="h-3.5 w-3.5" /> Today's Tasks
+            </p>
+            <div className="space-y-2.5">
+              {tasks.map(t => {
+                const done = completed[t.id];
+                return (
+                  <div key={t.id} className="rounded-2xl bg-white/15 border border-white/20 backdrop-blur p-3.5 flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-white flex items-center justify-center">
+                      <Sparkles className="h-5 w-5" style={{ color: PRIMARY }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold truncate">{t.title}</p>
+                      <p className="text-[11px] opacity-90">Reward: {formatNGN(t.reward)}</p>
+                    </div>
+                    <button
+                      disabled={done}
+                      onClick={() => complete(t.id, t.title, t.reward)}
+                      className="h-9 px-3 rounded-xl text-[11px] font-black disabled:opacity-60"
+                      style={{ background: done ? "rgba(255,255,255,0.2)" : "#FFFFFF", color: done ? "#FFFFFF" : PRIMARY }}
+                    >
+                      {done ? "DONE" : "EARN"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    </PhoneFrame>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-white/10 p-2.5">
+      <p className="text-[9px] uppercase tracking-widest font-semibold opacity-80">{label}</p>
+      <p className="text-sm font-black mt-0.5">{value}</p>
+    </div>
+  );
+}
