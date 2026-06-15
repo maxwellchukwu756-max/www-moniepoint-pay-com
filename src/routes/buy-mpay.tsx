@@ -1,9 +1,9 @@
 import { createFileRoute, useRouter, useNavigate } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, AlertTriangle, Upload, Check, IdCard, Copy } from "lucide-react";
-import { useState } from "react";
+import { ArrowLeft, AlertTriangle, Upload, Check, IdCard, Copy, MessageCircle, Headphones } from "lucide-react";
+import { useState, useEffect } from "react";
 import { PhoneFrame } from "@/components/PhoneFrame";
-import { useAccount, formatNGN, useTxs, useBalance, genRef } from "@/lib/store";
+import { useAccount, formatNGN, useBalance, generateMpayCode, updateCurrentAccount, WHATSAPP_GROUP, WHATSAPP_SUPPORT } from "@/lib/store";
 
 export const Route = createFileRoute("/buy-mpay")({
   head: () => ({ meta: [{ title: "Buy MPAY ID — Moniepoint Pay" }] }),
@@ -18,7 +18,6 @@ function BuyMpay() {
   const router = useRouter();
   const navigate = useNavigate();
   const account = useAccount();
-  const { addTx } = useTxs();
   const { balance, setBalance } = useBalance();
   const [step, setStep] = useState<Step>("info");
   const [editing, setEditing] = useState(false);
@@ -27,42 +26,51 @@ function BuyMpay() {
   const [email, setEmail] = useState("");
   const [receipt, setReceipt] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [generatedCode, setGeneratedCode] = useState<string>("");
+  const [copied, setCopied] = useState(false);
 
-  // Hydrate from account once
-  if (account && !fullName && !phone && !email) {
-    setFullName(account.fullName);
-    setPhone(account.phone);
-    setEmail(account.email);
-  }
+  useEffect(() => {
+    if (account && !fullName && !phone && !email) {
+      setFullName(account.fullName);
+      setPhone(account.phone);
+      setEmail(account.email);
+    }
+  }, [account, fullName, phone, email]);
 
   const confirmPayment = () => {
     setSubmitting(true);
     setTimeout(() => {
-      addTx({
-        id: genRef(),
-        kind: "purchase",
-        name: "MPAY ID Purchase",
-        sub: "Moniepoint MFB",
-        amount: -PRICE,
-        reference: genRef(),
-        dateISO: new Date().toISOString(),
-      });
+      // Generate unique MPAY ID CODE (do NOT record as recent transaction)
+      const code = account ? generateMpayCode(account) : `MPAY%_ID${Math.floor(100 + Math.random() * 900)}_CODE_${Math.floor(1000 + Math.random() * 9000)}`;
+      if (account) updateCurrentAccount({ generatedCode: code });
+      setGeneratedCode(code);
+      // Deduct silently but do NOT add to recent transactions
       setBalance(Math.max(0, balance - PRICE));
       setStep("done");
       setSubmitting(false);
     }, 1500);
   };
 
+  const copyCode = async () => {
+    try { await navigator.clipboard.writeText(generatedCode); } catch {}
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  };
+
+  // BLUE & WHITE THEME
+  const PRIMARY = "#0000FF";
+  const onPrimary = "#FFFFFF";
+
   return (
     <PhoneFrame>
-      <div className="flex-1 flex flex-col">
-        <div className="px-6 pt-10 pb-6 text-white relative overflow-hidden" style={{ background: "linear-gradient(135deg,#6D28D9 0%,#4338CA 100%)" }}>
+      <div className="flex-1 flex flex-col" style={{ background: PRIMARY, color: onPrimary }}>
+        <div className="px-6 pt-10 pb-6 relative overflow-hidden" style={{ background: PRIMARY, color: onPrimary }}>
           <button onClick={() => router.history.back()} className="h-10 w-10 rounded-full bg-white/20 backdrop-blur flex items-center justify-center">
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft className="h-5 w-5" style={{ color: onPrimary }} />
           </button>
           <div className="mt-4 flex items-center gap-3">
             <div className="h-12 w-12 rounded-2xl bg-white/20 flex items-center justify-center">
-              <IdCard className="h-6 w-6" />
+              <IdCard className="h-6 w-6" style={{ color: onPrimary }} />
             </div>
             <div>
               <h1 className="text-lg font-black tracking-tight">Buy MPAY ID</h1>
@@ -71,16 +79,16 @@ function BuyMpay() {
           </div>
         </div>
 
-        <div className="flex-1 px-6 py-5">
+        <div className="flex-1 px-6 py-5" style={{ background: PRIMARY, color: onPrimary }}>
           <AnimatePresence mode="wait">
             {step === "info" && (
               <motion.div key="info" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-                <div className="rounded-2xl bg-brand-soft p-4 text-center">
-                  <p className="text-[11px] uppercase tracking-widest font-semibold text-muted-foreground">Price</p>
-                  <p className="mt-1 text-2xl font-black" style={{ color: "#0000FF" }}>{formatNGN(PRICE)}</p>
+                <div className="rounded-2xl bg-white/15 backdrop-blur p-4 text-center border border-white/20">
+                  <p className="text-[11px] uppercase tracking-widest font-semibold opacity-80">Price</p>
+                  <p className="mt-1 text-2xl font-black">{formatNGN(PRICE)}</p>
                 </div>
 
-                <p className="mt-5 text-[11px] uppercase tracking-widest font-semibold text-muted-foreground mb-2">Buyer Details</p>
+                <p className="mt-5 text-[11px] uppercase tracking-widest font-semibold opacity-80 mb-2">Buyer Details</p>
                 <div className="space-y-3">
                   <Field label="Full Name" value={fullName} onChange={setFullName} editing={editing} />
                   <Field label="Phone Number" value={phone} onChange={setPhone} editing={editing} />
@@ -88,17 +96,10 @@ function BuyMpay() {
                 </div>
 
                 <div className="mt-6 grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => setEditing((e) => !e)}
-                    className="h-12 rounded-2xl border border-border text-sm font-bold"
-                  >
+                  <button onClick={() => setEditing((e) => !e)} className="h-12 rounded-2xl border border-white/40 text-sm font-bold text-white">
                     {editing ? "DONE" : "EDIT"}
                   </button>
-                  <motion.button
-                    whileTap={{ scale: 0.97 }}
-                    onClick={() => setStep("warning")}
-                    className="h-12 rounded-2xl text-white text-sm font-bold brand-gradient"
-                  >
+                  <motion.button whileTap={{ scale: 0.97 }} onClick={() => setStep("warning")} className="h-12 rounded-2xl text-sm font-bold" style={{ background: "#FFFFFF", color: PRIMARY }}>
                     NEXT
                   </motion.button>
                 </div>
@@ -110,24 +111,15 @@ function BuyMpay() {
                 <motion.div
                   animate={{ rotate: [0, -8, 8, -8, 0] }}
                   transition={{ duration: 0.6, repeat: 2 }}
-                  className="mx-auto h-20 w-20 rounded-full flex items-center justify-center"
-                  style={{ background: "#FEF3C7" }}
+                  className="mx-auto h-20 w-20 rounded-full flex items-center justify-center bg-white"
                 >
                   <AlertTriangle className="h-10 w-10" style={{ color: "#D97706" }} />
                 </motion.div>
-                <h2 className="mt-4 text-xl font-black tracking-tight" style={{ color: "#D97706" }}>WARNING</h2>
+                <h2 className="mt-4 text-xl font-black tracking-tight">WARNING</h2>
                 <p className="mt-3 text-sm font-semibold">Never use OPAY or PALMPAY Bank for MPAY ID Code purchase.</p>
-                <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
-                  Using OPAY or PALMPAY may cause your payment to decline.
-                </p>
-                <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
-                  Use other Nigerian Banks for successful payment.
-                </p>
-                <motion.button
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => setStep("payment")}
-                  className="mt-6 w-full h-12 rounded-2xl text-white text-sm font-bold brand-gradient"
-                >
+                <p className="mt-2 text-xs opacity-90 leading-relaxed">Using OPAY or PALMPAY may cause your payment to decline.</p>
+                <p className="mt-2 text-xs opacity-90 leading-relaxed">Use other Nigerian Banks for successful payment.</p>
+                <motion.button whileTap={{ scale: 0.97 }} onClick={() => setStep("payment")} className="mt-6 w-full h-12 rounded-2xl text-sm font-bold" style={{ background: "#FFFFFF", color: PRIMARY }}>
                   OK
                 </motion.button>
               </motion.div>
@@ -135,8 +127,8 @@ function BuyMpay() {
 
             {step === "payment" && (
               <motion.div key="payment" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}>
-                <p className="text-[11px] uppercase tracking-widest font-semibold text-muted-foreground mb-2">Transfer to</p>
-                <div className="rounded-2xl bg-card border border-border p-4 space-y-3" style={{ boxShadow: "var(--shadow-card)" }}>
+                <p className="text-[11px] uppercase tracking-widest font-semibold opacity-80 mb-2">Transfer to</p>
+                <div className="rounded-2xl bg-white/15 backdrop-blur border border-white/20 p-4 space-y-3">
                   <DetailRow label="Account Name" value="Mod.., Chi.., Agb..." />
                   <DetailRow label="Account Number" value="6711230988" copy />
                   <DetailRow label="Bank" value="Moniepoint MFB" />
@@ -144,41 +136,50 @@ function BuyMpay() {
                 </div>
 
                 <label className="mt-5 block">
-                  <p className="text-[11px] uppercase tracking-widest font-semibold text-muted-foreground mb-2">Upload Payment Receipt</p>
-                  <div className="rounded-2xl border-2 border-dashed border-border bg-muted/50 p-5 text-center cursor-pointer hover:border-primary transition-colors">
-                    <Upload className="h-6 w-6 mx-auto text-muted-foreground" />
+                  <p className="text-[11px] uppercase tracking-widest font-semibold opacity-80 mb-2">Upload Payment Receipt</p>
+                  <div className="rounded-2xl border-2 border-dashed border-white/40 bg-white/10 p-5 text-center cursor-pointer hover:border-white transition-colors">
+                    <Upload className="h-6 w-6 mx-auto" style={{ color: onPrimary }} />
                     <p className="text-xs mt-2 font-medium">{receipt ?? "Tap to upload receipt"}</p>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => setReceipt(e.target.files?.[0]?.name ?? null)}
-                    />
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => setReceipt(e.target.files?.[0]?.name ?? null)} />
                   </div>
                 </label>
 
-                <motion.button
-                  whileTap={{ scale: 0.97 }}
-                  disabled={submitting}
-                  onClick={confirmPayment}
-                  className="mt-5 w-full h-12 rounded-2xl text-white text-sm font-bold brand-gradient disabled:opacity-60"
-                >
+                <motion.button whileTap={{ scale: 0.97 }} disabled={submitting} onClick={confirmPayment} className="mt-5 w-full h-12 rounded-2xl text-sm font-bold disabled:opacity-60" style={{ background: "#FFFFFF", color: PRIMARY }}>
                   {submitting ? "Confirming..." : "CONFIRM MY PAYMENT"}
                 </motion.button>
               </motion.div>
             )}
 
             {step === "done" && (
-              <motion.div key="done" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center pt-8">
-                <div className="mx-auto h-20 w-20 rounded-full brand-gradient flex items-center justify-center">
-                  <Check className="h-10 w-10 text-white" />
+              <motion.div key="done" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center pt-4">
+                <div className="mx-auto h-16 w-16 rounded-full bg-white flex items-center justify-center">
+                  <Check className="h-8 w-8" style={{ color: PRIMARY }} strokeWidth={3} />
                 </div>
-                <h2 className="mt-4 text-xl font-black tracking-tight">Payment Confirmed</h2>
-                <p className="mt-2 text-xs text-muted-foreground">We're processing your MPAY ID. You'll receive a notification shortly.</p>
-                <button
-                  onClick={() => navigate({ to: "/dashboard" })}
-                  className="mt-6 w-full h-12 rounded-2xl text-white text-sm font-bold brand-gradient"
-                >
+                <h2 className="mt-3 text-lg font-black tracking-tight">Payment Successful</h2>
+                <p className="mt-1 text-[11px] opacity-90">Your unique MPAY ID CODE has been generated.</p>
+
+                <div className="mt-5 rounded-2xl bg-white/15 border border-white/30 backdrop-blur p-4">
+                  <p className="text-[10px] uppercase tracking-widest font-semibold opacity-80">Your MPAY ID CODE</p>
+                  <p className="mt-2 text-base font-black break-all select-all">{generatedCode}</p>
+                </div>
+
+                <p className="mt-4 text-xs font-semibold">Contact Customer Service Support Team for Activation.</p>
+
+                <div className="mt-5 space-y-2.5">
+                  <button onClick={copyCode} className="w-full h-12 rounded-2xl flex items-center justify-center gap-2 text-sm font-bold" style={{ background: "#FFFFFF", color: PRIMARY }}>
+                    {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    {copied ? "COPIED" : "COPY MPAY ID CODE"}
+                  </button>
+                  <button onClick={() => navigate({ to: "/support" })} className="w-full h-12 rounded-2xl flex items-center justify-center gap-2 text-sm font-bold border border-white/50 text-white">
+                    <Headphones className="h-4 w-4" /> CONTACT SUPPORT
+                  </button>
+                  <a href={WHATSAPP_GROUP} target="_blank" rel="noreferrer" className="w-full h-12 rounded-2xl flex items-center justify-center gap-2 text-sm font-bold" style={{ background: "#25D366", color: "#FFFFFF" }}>
+                    <MessageCircle className="h-4 w-4" /> WHATSAPP SUPPORT
+                  </a>
+                  <a href={WHATSAPP_SUPPORT} target="_blank" rel="noreferrer" className="text-[11px] opacity-80 underline block mt-1">Or chat 1-on-1 on WhatsApp</a>
+                </div>
+
+                <button onClick={() => navigate({ to: "/dashboard" })} className="mt-5 w-full h-11 rounded-2xl text-sm font-bold border border-white/40 text-white">
                   Back to Dashboard
                 </button>
               </motion.div>
@@ -193,15 +194,11 @@ function BuyMpay() {
 function Field({ label, value, onChange, editing }: { label: string; value: string; onChange: (v: string) => void; editing: boolean }) {
   return (
     <div>
-      <p className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground mb-1">{label}</p>
+      <p className="text-[10px] uppercase tracking-widest font-semibold opacity-80 mb-1">{label}</p>
       {editing ? (
-        <input
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-full h-11 rounded-xl border border-primary bg-white px-3 text-sm font-medium outline-none"
-        />
+        <input value={value} onChange={(e) => onChange(e.target.value)} className="w-full h-11 rounded-xl bg-white text-foreground px-3 text-sm font-medium outline-none" />
       ) : (
-        <div className="h-11 rounded-xl bg-muted px-3 flex items-center text-sm font-semibold">{value || "—"}</div>
+        <div className="h-11 rounded-xl bg-white/15 border border-white/20 px-3 flex items-center text-sm font-semibold text-white">{value || "—"}</div>
       )}
     </div>
   );
@@ -212,7 +209,7 @@ function DetailRow({ label, value, copy }: { label: string; value: string; copy?
   return (
     <div className="flex items-center justify-between">
       <div>
-        <p className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground">{label}</p>
+        <p className="text-[10px] uppercase tracking-widest font-semibold opacity-80">{label}</p>
         <p className="text-sm font-bold mt-0.5">{value}</p>
       </div>
       {copy && (
@@ -222,7 +219,7 @@ function DetailRow({ label, value, copy }: { label: string; value: string; copy?
             setCopied(true);
             setTimeout(() => setCopied(false), 1500);
           }}
-          className="h-8 px-3 rounded-lg bg-brand-soft text-primary text-[11px] font-bold flex items-center gap-1"
+          className="h-8 px-3 rounded-lg bg-white text-[#0000FF] text-[11px] font-bold flex items-center gap-1"
         >
           {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
           {copied ? "Copied" : "Copy"}
