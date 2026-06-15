@@ -30,6 +30,8 @@ const ALL_TASKS = [
 
 const REWARDS = [500, 1000, 1500, 2000, 2500, 3000];
 
+type CompletedMap = { _day?: string; [taskId: string]: boolean | string | undefined };
+
 function dayKey() {
   const d = new Date();
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
@@ -64,26 +66,25 @@ function EarnMore() {
   const [showReferral, setShowReferral] = useState(false);
   const [copied, setCopied] = useState(false);
   const tasks = useMemo(getTodaysTasks, []);
-  const [completed, setCompleted] = useState<Record<string, boolean>>({});
+  const [completed, setCompleted] = useState<CompletedMap>({});
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem(COMPLETED_KEY);
-      const map = raw ? JSON.parse(raw) : {};
-      // reset if new day
+      const map: CompletedMap = raw ? JSON.parse(raw) : {};
       if (map._day !== dayKey()) {
-        const fresh = { _day: dayKey() };
+        const fresh: CompletedMap = { _day: dayKey() };
         localStorage.setItem(COMPLETED_KEY, JSON.stringify(fresh));
-        setCompleted({});
+        setCompleted(fresh);
       } else {
         setCompleted(map);
       }
-    } catch { setCompleted({}); }
+    } catch { setCompleted({ _day: dayKey() }); }
   }, []);
 
   const complete = (id: string, title: string, reward: number) => {
     if (completed[id]) return;
-    const next = { ...completed, [id]: true, _day: dayKey() };
+    const next: CompletedMap = { ...completed, [id]: true, _day: dayKey() };
     setCompleted(next);
     localStorage.setItem(COMPLETED_KEY, JSON.stringify(next));
     const ref = genRef();

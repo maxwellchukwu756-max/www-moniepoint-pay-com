@@ -12,7 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as WelcomeRouteImport } from './routes/welcome'
 import { Route as TransferRouteImport } from './routes/transfer'
 import { Route as SupportRouteImport } from './routes/support'
+import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as LoadingRouteImport } from './routes/loading'
+import { Route as EarnMoreRouteImport } from './routes/earn-more'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as BuyMpayRouteImport } from './routes/buy-mpay'
 import { Route as ActivateRouteImport } from './routes/activate'
@@ -34,9 +36,19 @@ const SupportRoute = SupportRouteImport.update({
   path: '/support',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoadingRoute = LoadingRouteImport.update({
   id: '/loading',
   path: '/loading',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EarnMoreRoute = EarnMoreRouteImport.update({
+  id: '/earn-more',
+  path: '/earn-more',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -70,7 +82,9 @@ export interface FileRoutesByFullPath {
   '/activate': typeof ActivateRoute
   '/buy-mpay': typeof BuyMpayRoute
   '/dashboard': typeof DashboardRoute
+  '/earn-more': typeof EarnMoreRoute
   '/loading': typeof LoadingRoute
+  '/notifications': typeof NotificationsRoute
   '/support': typeof SupportRoute
   '/transfer': typeof TransferRoute
   '/welcome': typeof WelcomeRoute
@@ -81,7 +95,9 @@ export interface FileRoutesByTo {
   '/activate': typeof ActivateRoute
   '/buy-mpay': typeof BuyMpayRoute
   '/dashboard': typeof DashboardRoute
+  '/earn-more': typeof EarnMoreRoute
   '/loading': typeof LoadingRoute
+  '/notifications': typeof NotificationsRoute
   '/support': typeof SupportRoute
   '/transfer': typeof TransferRoute
   '/welcome': typeof WelcomeRoute
@@ -93,7 +109,9 @@ export interface FileRoutesById {
   '/activate': typeof ActivateRoute
   '/buy-mpay': typeof BuyMpayRoute
   '/dashboard': typeof DashboardRoute
+  '/earn-more': typeof EarnMoreRoute
   '/loading': typeof LoadingRoute
+  '/notifications': typeof NotificationsRoute
   '/support': typeof SupportRoute
   '/transfer': typeof TransferRoute
   '/welcome': typeof WelcomeRoute
@@ -106,7 +124,9 @@ export interface FileRouteTypes {
     | '/activate'
     | '/buy-mpay'
     | '/dashboard'
+    | '/earn-more'
     | '/loading'
+    | '/notifications'
     | '/support'
     | '/transfer'
     | '/welcome'
@@ -117,7 +137,9 @@ export interface FileRouteTypes {
     | '/activate'
     | '/buy-mpay'
     | '/dashboard'
+    | '/earn-more'
     | '/loading'
+    | '/notifications'
     | '/support'
     | '/transfer'
     | '/welcome'
@@ -128,7 +150,9 @@ export interface FileRouteTypes {
     | '/activate'
     | '/buy-mpay'
     | '/dashboard'
+    | '/earn-more'
     | '/loading'
+    | '/notifications'
     | '/support'
     | '/transfer'
     | '/welcome'
@@ -140,7 +164,9 @@ export interface RootRouteChildren {
   ActivateRoute: typeof ActivateRoute
   BuyMpayRoute: typeof BuyMpayRoute
   DashboardRoute: typeof DashboardRoute
+  EarnMoreRoute: typeof EarnMoreRoute
   LoadingRoute: typeof LoadingRoute
+  NotificationsRoute: typeof NotificationsRoute
   SupportRoute: typeof SupportRoute
   TransferRoute: typeof TransferRoute
   WelcomeRoute: typeof WelcomeRoute
@@ -170,11 +196,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SupportRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/loading': {
       id: '/loading'
       path: '/loading'
       fullPath: '/loading'
       preLoaderRoute: typeof LoadingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/earn-more': {
+      id: '/earn-more'
+      path: '/earn-more'
+      fullPath: '/earn-more'
+      preLoaderRoute: typeof EarnMoreRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -220,7 +260,9 @@ const rootRouteChildren: RootRouteChildren = {
   ActivateRoute: ActivateRoute,
   BuyMpayRoute: BuyMpayRoute,
   DashboardRoute: DashboardRoute,
+  EarnMoreRoute: EarnMoreRoute,
   LoadingRoute: LoadingRoute,
+  NotificationsRoute: NotificationsRoute,
   SupportRoute: SupportRoute,
   TransferRoute: TransferRoute,
   WelcomeRoute: WelcomeRoute,
@@ -229,13 +271,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
