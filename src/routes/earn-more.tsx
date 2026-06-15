@@ -172,7 +172,7 @@ function EarnMore() {
             </p>
             <div className="space-y-2.5">
               {tasks.map(t => {
-                const done = completed[t.id];
+                const done = completed[t.id] === true;
                 return (
                   <div key={t.id} className="rounded-2xl bg-white/15 border border-white/20 backdrop-blur p-3.5 flex items-center gap-3">
                     <div className="h-10 w-10 rounded-xl bg-white flex items-center justify-center">
